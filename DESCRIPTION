@@ -1,0 +1,27 @@
+Package: methylVCF
+Title: Query DNA Methylation in VCF and gVCF Files
+Version: 0.99.0
+Authors@R: person("Francesc", "Català-Moll", role = c("aut", "cre"),
+    email = "fcatala@irsicaixa.es", comment = c(ORCID = "0000-0002-2354-8648"))
+Description: Queries DNA methylation by genomic region in Illumina DRAGEN
+    5-Base VCF and gVCF files and in Rastair VCF files. Returns genomic
+    ranges with the reported methylation fraction, informative read depth,
+    and allele or haplotype assignment when supported by the input.
+    Preserves source record coordinates and distinguishes zero informative
+    depth from an observed zero methylation fraction. Aligns reference
+    methylation measurements across samples in a ranged experiment.
+License: MIT + file LICENSE
+URL: https://github.com/xec-cm/methylVCF,
+    https://xec-cm.github.io/methylVCF/
+BugReports: https://github.com/xec-cm/methylVCF/issues
+Encoding: UTF-8
+Depends: R (>= 4.6)
+Imports: cli (>= 3.0.0), GenomicRanges, IRanges, Rsamtools, S4Vectors,
+    Seqinfo, stats, SummarizedExperiment, utils
+Suggests: BiocStyle, dplyr, knitr, plyranges, rmarkdown,
+    testthat (>= 3.2.0), tibble, tidySummarizedExperiment
+Config/testthat/edition: 3
+Roxygen: list(roclets = c("namespace", "rd", "roxytest::testthat_roclet"))
+VignetteBuilder: knitr
+biocViews: DataImport, DNAMethylation, Epigenetics, MethylSeq, Sequencing, Coverage
+Config/roxygen2/version: 8.1.1

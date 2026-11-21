@@ -1,0 +1,151 @@
+---
+title: "Explore methylation in a genomic region"
+output: BiocStyle::html_document
+vignette: >
+    %\VignetteIndexEntry{Explore methylation in a genomic region}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+---
+
+# Introduction
+
+`VariantAnnotation::readVcf()` reads VCF records and makes their
+INFO and FORMAT fields available. methylVCF interprets the caller-specific
+5mC fields to place each measurement at its genomic anchor. It uses DRAGEN
+masks and genotypes to identify measured positions and allele or haplotype
+slots, and Rastair flags to distinguish reference and de novo CpG contexts.
+For a DRAGEN reference block, a measured base can be inside the block rather
+than at its VCF `POS`. The resulting `GRanges` can be joined to annotations,
+and reference measurements can be aligned in a `RangedSummarizedExperiment`.
+[VariantAnnotation user guide][variantannotation]
+
+Suppose you have two samples in a methylation-aware gVCF and want to compare
+5mC in a short region. Start by inspecting the coverage at each site. Then
+align sites across the samples. We use an artificial DRAGEN example from
+the package. The workflow uses [plyranges][plyranges] to manipulate
+genomic ranges and [tidySummarizedExperiment][tidyse] to work with
+one row per site and sample.
+
+# Installation
+
+For the development version, follow the [installation instructions][install].
+Once methylVCF is available on Bioconductor, install it with its tutorial
+dependencies.
+
+```{r installation, eval=FALSE}
+BiocManager::install("methylVCF", dependencies = TRUE)
+```
+
+# Find measurements in the interval
+
+```{r setup, message=FALSE}
+library(methylVCF)
+library(tidySummarizedExperiment)
+```
+
+```{r read}
+vcf <- system.file("extdata", "dragen-multisample.g.vcf", package = "methylVCF")
+region <-
+    tibble::tibble(seqnames = "chr21", start = 13204474L, end = 13204520L) |>
+    plyranges::as_granges()
+
+calls <- readMethylVcf(vcf, region)
+calls |>
+    tibble::as_tibble() |>
+    dplyr::select(start, sample, scope, fraction, informative_depth)
+```
+
+Each row is one reported measurement at a genomic anchor. A site can
+have several rows, for example one per sample or phased allele. At
+13,204,520, each sample has two phased measurements. Leave those rows in
+the `GRanges` when inspecting allele-specific methylation.
+
+The coordinates in `region` are 1-based and inclusive. To check where a
+measurement came from in the gVCF, inspect `record_start` and `record_end`.
+The query window starts at 13,204,474, inside the reference block that starts
+at 13,204,471.
+
+# Add a feature annotation
+
+Add the name of a small artificial feature using an overlap join.
+`join_overlap_inner()` retains the matching measurements as `GRanges`
+and adds metadata from the annotation. This example joins one feature
+to two measurements at its CpG.
+
+```{r overlap}
+features <-
+    tibble::tibble(
+        seqnames = "chr21",
+        start = 13204473L,
+        end = 13204476L,
+        feature = "example feature"
+    ) |> plyranges::as_granges()
+
+annotated <-
+    calls |>
+    plyranges::join_overlap_inner(features)
+
+annotated |>
+    tibble::as_tibble() |>
+    dplyr::select(start, feature, sample, coverage_status)
+```
+
+To retain overlapping calls without copying annotation columns, use
+`plyranges::filter_by_overlaps()`.
+
+```{r observed-overlaps}
+covered <-
+    calls |>
+    plyranges::filter_by_overlaps(features) |>
+    dplyr::filter(coverage_status == "observed")
+
+covered |>
+    tibble::as_tibble() |>
+    dplyr::select(start, sample, fraction, informative_depth)
+```
+
+# Compare reference sites
+
+Use `asMethylExperiment()` when the desired unit is a **reference site
+by sample**. Build the experiment from the original calls so that
+zero-depth reports stay available in the reported assays. The two pooled
+reference sites in the example form a `RangedSummarizedExperiment` with
+genomic rows and sample columns.
+
+```{r align}
+experiment <- calls |> asMethylExperiment()
+```
+
+With tidySummarizedExperiment loaded, `as_tibble()` provides a tidy view
+of the assays and metadata. Keep the observed fraction and the original
+report side by side to interpret the missing values.
+
+```{r site-by-sample, warning=FALSE}
+experiment |>
+    tibble::as_tibble() |>
+    dplyr::select(start, .sample, fraction, reported_fraction, informative_depth) |>
+    dplyr::arrange(start, .sample)
+```
+
+At 13,204,474, the reported zero for `sample_b` has zero depth. At
+13,204,515, `sample_b` has no measurement. Both analytical fractions are
+missing. The recorded depth distinguishes them. The zero at 13,204,515
+in `sample_a` is an observed fraction supported by nine reads.
+
+The same projection can take a named list of imports when each file
+contains a different sample. Select one VCF sample in each import, and
+use a common caller format and reference assembly. The list names
+become the output sample names. The importer keeps declared assemblies in
+`seqinfo(calls)`. Confirm the reference assembly for files that omit it.
+See the [input guide](input-vcf.html) for reader settings and format details.
+
+# Session information
+
+```{r session-info}
+utils::sessionInfo()
+```
+
+[plyranges]: https://tidyomics.github.io/plyranges/
+[tidyse]: https://tidyomics.github.io/tidySummarizedExperiment/
+[variantannotation]: https://bioconductor.org/packages/release/bioc/vignettes/VariantAnnotation/inst/doc/VariantAnnotation.html
+[install]: https://github.com/xec-cm/methylVCF#installation

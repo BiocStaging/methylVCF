@@ -1,0 +1,245 @@
+# Adapted from dar's MIT-licensed biocthis workflow.
+# https://github.com/MicrobialGenomics-IrsicaixaOrg/dar/blob/27c4da214117f63469f64599c4250dfc44ba4960/.github/workflows/check-bioc.yml
+name: R-CMD-check-bioc
+
+on:
+  push:
+    branches: [devel]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r-cmd-check-bioc-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bioc-config:
+    runs-on: ubuntu-latest
+    outputs:
+      bioc_version: ${{ steps.versions.outputs.bioc_version }}
+      r_version: ${{ steps.versions.outputs.r_version }}
+    steps:
+      - name: Resolve Bioconductor devel and its R version
+        id: versions
+        shell: bash
+        run: |
+          config=$(curl -fsSL --retry 3 https://bioconductor.org/config.yaml)
+          config_value() {
+              awk -F ': *' -v key="$1" '$1 == key { gsub(/"/, "", $2); print $2; exit }' <<< "$config"
+          }
+          r_major_minor() {
+              grep -Eo '^[0-9]+\.[0-9]+' <<< "$1"
+          }
+          bioc_version=$(config_value devel_version)
+          r_release=$(r_major_minor "$(config_value r_version_associated_with_release)")
+          r_devel=$(r_major_minor "$(config_value r_version_associated_with_devel)")
+          if [[ ! "$bioc_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Unable to resolve the Bioconductor devel version"
+              exit 1
+          fi
+          r_version="$r_devel"
+          if [[ "$r_release" != "$r_devel" ]]; then
+              r_version=devel
+          fi
+          printf 'bioc_version=%s\nr_version=%s\n' "$bioc_version" "$r_version" >> "$GITHUB_OUTPUT"
+
+  build-check:
+    needs: bioc-config
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            container: bioconductor/bioconductor_docker:devel
+          - os: macos-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    name: ${{ matrix.os }} (BioC ${{ needs.bioc-config.outputs.bioc_version }})
+    env:
+      BIOC_VERSION: ${{ needs.bioc-config.outputs.bioc_version }}
+      NOT_CRAN: 'true'
+      TZ: UTC
+
+    steps:
+      - name: Check out the package
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up R
+        if: runner.os != 'Linux'
+        uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+        with:
+          r-version: ${{ needs.bioc-config.outputs.r_version }}
+
+      - name: Set up Pandoc
+        uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+
+      - name: Prepare the R library
+        shell: Rscript {0}
+        run: |
+          library_dir <- file.path(Sys.getenv("RUNNER_TEMP"), "methylVCF-library")
+          dir.create(library_dir, recursive = TRUE, showWarnings = FALSE)
+          cat(
+              "R_LIBS_USER=", normalizePath(library_dir, winslash = "/"), "\n",
+              file = Sys.getenv("GITHUB_ENV"), append = TRUE, sep = ""
+          )
+
+      - name: Cache R dependencies
+        if: "!contains(github.event.head_commit.message, '/nocache')"
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: >-
+            methylVCF-${{ matrix.os }}-${{ runner.arch }}-R-${{ needs.bioc-config.outputs.r_version }}-BioC-${{ env.BIOC_VERSION }}-${{ hashFiles('DESCRIPTION', '.github/workflows/check-bioc.yml') }}
+
+      - name: Install package and check dependencies
+        shell: Rscript {0}
+        run: |
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          tools <- c("BiocManager", "remotes")
+          missing <- setdiff(tools, rownames(installed.packages()))
+          if (length(missing)) {
+              install.packages(missing)
+          }
+
+          version <- Sys.getenv("BIOC_VERSION")
+          if (as.character(BiocManager::version()) != version) {
+              BiocManager::install(version = version, ask = FALSE, update = FALSE)
+          }
+          repos <- BiocManager::repositories(version = version)
+          check_tools <- c("rcmdcheck", "BiocCheck")
+          if (Sys.info()[["sysname"]] == "Linux") {
+              check_tools <- c(check_tools, "covr", "pkgdown")
+          }
+          missing <- setdiff(check_tools, rownames(installed.packages()))
+          if (length(missing)) {
+              BiocManager::install(missing, ask = FALSE, update = FALSE)
+          }
+          remotes::install_deps(dependencies = TRUE, repos = repos, upgrade = "never")
+
+      - name: Check the package
+        env:
+          _R_CHECK_CRAN_INCOMING_: 'false'
+        shell: Rscript {0}
+        run: |
+          utils::sessionInfo()
+          rcmdcheck::rcmdcheck(
+              args = c("--no-manual", "--timings"),
+              build_args = "--no-manual",
+              error_on = "warning",
+              check_dir = "check"
+          )
+
+      - name: Run BiocCheck
+        shell: Rscript {0}
+        run: |
+          tarball <- list.files("check", pattern = "\\.tar\\.gz$", full.names = TRUE)
+          stopifnot(length(tarball) == 1L)
+
+          # Account checks remain part of the maintainer's submission checks.
+          BiocCheck::BiocCheck(
+              tarball,
+              checkDir = "check",
+              `no-check-bioc-help` = TRUE,
+              `quit-with-status` = TRUE
+          )
+
+      - name: Show testthat results
+        if: always()
+        shell: Rscript {0}
+        run: |
+          logs <- list.files(
+              "check", pattern = "testthat[.]Rout", recursive = TRUE,
+              full.names = TRUE
+          )
+          for (log in logs) {
+              cat(readLines(log), sep = "\n")
+          }
+
+      - name: Check the pkgdown index
+        if: runner.os == 'Linux'
+        run: Rscript --vanilla dev/check-pkgdown.R
+
+      - name: Collect test coverage
+        if: runner.os == 'Linux' && github.ref == 'refs/heads/devel'
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        shell: Rscript {0}
+        run: |
+          coverage <- covr::package_coverage(type = "tests")
+          print(coverage)
+          covr::to_cobertura(coverage, "check/coverage.xml")
+          if (nzchar(Sys.getenv("CODECOV_TOKEN"))) {
+              covr::codecov(coverage = coverage)
+          }
+
+      - name: Upload coverage
+        if: runner.os == 'Linux' && github.ref == 'refs/heads/devel'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: check/coverage.xml
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build the pkgdown site
+        if: runner.os == 'Linux' && github.ref == 'refs/heads/devel'
+        shell: Rscript {0}
+        run: pkgdown::build_site_github_pages(install = TRUE)
+
+      - name: Upload the pkgdown site
+        if: runner.os == 'Linux' && github.ref == 'refs/heads/devel'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pkgdown-site
+          path: docs
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload failed check logs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.os }}-check-results
+          path: check
+          if-no-files-found: warn
+          retention-days: 7
+
+  deploy-pkgdown:
+    needs: build-check
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/devel' &&
+      github.event.repository.private == false &&
+      github.event.repository.has_pages == true
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Download the pkgdown site
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pkgdown-site
+          path: docs
+
+      - name: Package the GitHub Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs
+
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

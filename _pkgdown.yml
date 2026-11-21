@@ -1,0 +1,37 @@
+url: https://xec-cm.github.io/methylVCF/
+
+template:
+  bootstrap: 5
+  bootswatch: litera
+
+home:
+  sidebar:
+    structure: [package_links, license, community, citation, authors, dev]
+    components:
+      package_links:
+        title: Links
+        text: |
+          [Browse source code](https://github.com/xec-cm/methylVCF)\
+          [Package website](https://xec-cm.github.io/methylVCF/)\
+          [View on Bioconductor](https://bioconductor.org/packages/methylVCF/)\
+          [Report a bug](https://github.com/xec-cm/methylVCF/issues)
+
+articles:
+  - title: Workflows
+    navbar: Workflows
+    contents:
+      - methylVCF
+      - input-vcf
+  - title: Case studies
+    navbar: Case studies
+    contents:
+      - dragen-hg002
+
+reference:
+  - title: Regional methylation queries
+    contents:
+      - inspectMethylVcf
+      - readMethylVcf
+  - title: Compare samples
+    contents:
+      - asMethylExperiment

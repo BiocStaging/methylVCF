@@ -1,0 +1,57 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##rastairVersion=2.2.0
+##rastairCommand=call --threads 2 --fasta-file synthetic.fa --unpaired --no-ml --all --vcf-info-fields SC5,CPG,CPGnovo --vcf-format-fields GT,M5mC,DPM5mC,ADM5mC --vcf synthetic.vcf synthetic.bam
+##rastairConfig={"require_tags":[],"variant_calling":{"unpaired":true,"guess_read_orientation":false,"error_model":"Novaseq6000","keep_overlapping_reads":false,"linear_dedup_threshold":30,"v_min_depth":3,"max_coverage":1000,"quality":{"min_mapq":1,"min_baseq":10},"read_masking":{"n_ot":{"r1":{"from_start":0,"from_end":0},"r2":{"from_start":0,"from_end":0}},"n_ob":{"r1":{"from_start":0,"from_end":0},"r2":{"from_start":0,"from_end":0}}},"read_flags":{"include_flags":3,"exclude_flags":3852}},"indel":{"experimental_indels":null,"min_indel_ao":2,"min_indel_depth":2,"indel_error_rate":0.05,"indel_max_mismatches":5,"indel_end_of_read_cutoff":0},"denovo_cpg":{"cpg_novo_min_depth":2,"cpg_novo_min_baseq":15.0,"cpg_novo_min_mapq":50.0,"cpg_novo_min_vaf":0.2},"methylation":{"thresholds":{"m_vaf_min":0.2,"m_min_depth":3,"m_bq_ratio_min":0.27,"m_read_position_min":0.2,"m_read_position_max":0.8,"m_max_coverage":1000}},"ml":{"no_ml":true,"ml":0.5,"gpu":false},"record_filters":{"vcf_all":true,"cpgs_only":false}}
+##reference="synthetic.fa"
+##FILTER=<ID=lowDp,Description="Low read depth">
+##FILTER=<ID=dnCpG_lowDp,Description="Low read depth for de-novo CpG candidate">
+##FILTER=<ID=dnCpG_bq,Description="Low base quality for de-novo CpG candidate">
+##FILTER=<ID=dnCpG_mapq,Description="Low mapping quality for de-novo CpG candidate">
+##FILTER=<ID=dnCpG_vaf,Description="Low variant allele frequency for de-novo CpG candidate">
+##FILTER=<ID=dnCpG_adj,Description="Included as adjacent position for de-novo CpG candidate, but other position did not pass filters">
+##FILTER=<ID=m_vaf,Description="Low variant allele frequency for methylation candidate">
+##FILTER=<ID=m_bq_ratio,Description="Low quality ratio for methylation candidate">
+##FILTER=<ID=m_pos,Description="Alt allele evidence from read edges for methylation candidate">
+##FILTER=<ID=m_highDp,Description="Excessive coverage for methylation candidate">
+##FILTER=<ID=pre_ml,Description="Low amount of usable evidence, skipping ML">
+##FILTER=<ID=low_ml_score,Description="Machine Learning module prediction below threshold">
+##FILTER=<ID=indel_strand,Description="Indel allele supported on only one bisulfite strand">
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Total read depth for each allele">
+##INFO=<ID=BQ,Number=1,Type=Float,Description="RMS base quality">
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Combined depth across samples">
+##INFO=<ID=MQ,Number=1,Type=Float,Description="RMS mapping quality">
+##INFO=<ID=MQ0,Number=1,Type=Integer,Description="Number of MAPQ == 0 reads">
+##INFO=<ID=NS,Number=1,Type=Integer,Description="Number of samples with data">
+##INFO=<ID=AS_SB_OT,Number=R,Type=Integer,Description="OT counts per allele">
+##INFO=<ID=AS_SB_OB,Number=R,Type=Integer,Description="OB counts per allele">
+##INFO=<ID=SC5,Number=1,Type=String,Description="5-base sequence context centered on the variant position">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency for each ALT allele in the same order as listed (estimated from primary data, not called genotypes)">
+##INFO=<ID=ABQ,Number=R,Type=Float,Description="RMS Base quality per allele">
+##INFO=<ID=AMQ,Number=R,Type=Float,Description="RMS Map quality per allele">
+##INFO=<ID=AS_SS_BQ_OT,Number=R,Type=Float,Description="Strand-specific RMS of base quality per allele on the original top strand">
+##INFO=<ID=AS_SS_BQ_OB,Number=R,Type=Float,Description="Strand-specific RMS of base quality per allele on the original bottom strand">
+##INFO=<ID=AS_SS_MQ_OT,Number=R,Type=Float,Description="Strand-specific RMS of mapping quality per allele on the original top strand">
+##INFO=<ID=AS_SS_MQ_OB,Number=R,Type=Float,Description="Strand-specific RMS of mapping quality per allele on the original bottom strand">
+##INFO=<ID=PIR,Number=R,Type=Float,Description="RMS of relative position in read">
+##INFO=<ID=ENT100,Number=1,Type=Float,Description="Shannon entropy of 100bp sequence context around variant position. Value range (0..2)">
+##INFO=<ID=NAB,Number=R,Type=Float,Description="RMS of number of aligned bases">
+##INFO=<ID=NOI,Number=R,Type=Float,Description="RMS of number of indels">
+##INFO=<ID=M5mC_Strands,Number=4,Type=Integer,Description="Number of reads that are evidence for unmodified, modified, no SNP, snp">
+##INFO=<ID=CPG,Number=0,Type=Flag,Description="Is this a CpG site?">
+##INFO=<ID=CPGnovo,Number=0,Type=Flag,Description="De-novo CPG candidate: Could the alt alleles create a new CpG site?">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GL,Number=G,Type=Float,Description="Genotype likelihoods, Phred-scaled">
+##FORMAT=<ID=GC,Number=G,Type=Float,Description="Genotype confidence, Phred-scaled">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=M5mC,Number=M,Type=Float,Description="Methylation level at CpG sites">
+##FORMAT=<ID=DPM5mC,Number=M,Type=Integer,Description="Total read depth for 5-methylcytosine detection">
+##FORMAT=<ID=ADM5mC,Number=M,Type=Integer,Description="Read depth supporting 5-methylcytosine modification">
+##FORMAT=<ID=ML,Number=A,Type=Float,Description="Prediction of methylation/variant likelihood by rastair's machine learning model">
+##contig=<ID=synthetic,length=699>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample
+synthetic	101	.	C	T	43	PASS	AD=16,8;BQ=40;DP=24;MQ=60;SC5=ATCGA;M5mC_Strands=4,8,12,0;CPG	GT:GL:GC:DP:M5mC:DPM5mC:ADM5mC	0/0:99:36:24:0.666667:12:8
+synthetic	102	.	G	A	43	PASS	AD=16,8;BQ=40;DP=24;MQ=60;SC5=TCGAT;M5mC_Strands=4,8,12,0;CPG	GT:GL:GC:DP:M5mC:DPM5mC:ADM5mC	0/0:99:36:24:0.666667:12:8
+synthetic	301	.	C	T	43	PASS	AD=15,9;BQ=40;DP=24;MQ=60;SC5=TACCG;M5mC_Strands=3,9,12,0;CPGnovo	GT:GL:GC:DP:M5mC:DPM5mC:ADM5mC	0/1:3:99:24:0.5:12:9
+synthetic	302	.	C	G	43	PASS	AD=0,24;BQ=40;DP=24;MQ=60;SC5=ACCGA;M5mC_Strands=12,0,12,0;CPG;CPGnovo	GT:GL:GC:DP:M5mC:DPM5mC:ADM5mC	1/1:99:72:24:0:12:0
+synthetic	303	.	G	.	99	PASS	AD=24;BQ=40;DP=24;MQ=60;SC5=CCGAT;M5mC_Strands=12,0,12,0;CPG	GT:GL:GC:DP:M5mC:DPM5mC:ADM5mC	0/0:99:36:24:0:0:0

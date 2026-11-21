@@ -1,0 +1,15 @@
+##fileformat=VCFv4.5
+##rastairVersion=2.3.0-rc1
+##contig=<ID=chr19,length=61431566>
+##INFO=<ID=SC5,Number=1,Type=String,Description="Five-base reference context centered on POS">
+##INFO=<ID=CPG,Number=0,Type=Flag,Description="Reference CpG context">
+##INFO=<ID=CPGnovo,Number=0,Type=Flag,Description="Candidate de novo CpG context">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=M5mC,Number=.,Type=Float,Description="5mC fraction in CpG context order">
+##FORMAT=<ID=DPM5mC,Number=.,Type=Integer,Description="Informative 5mC depth in CpG context order">
+##FORMAT=<ID=ADM5mC,Number=.,Type=Integer,Description="5mC-supporting depth in CpG context order">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	rastair_demo
+chr19	6105744	.	C	.	.	PASS	CPG;SC5=AACGT	GT:M5mC:DPM5mC:ADM5mC	0/0:0.8:10:8
+chr19	6105745	.	G	.	.	PASS	CPG;SC5=ACGTA	GT:M5mC:DPM5mC:ADM5mC	0/0:0.5:14:7
+chr19	6105750	.	C	G	60	PASS	CPG;CPGnovo;SC5=ACCGC	GT:M5mC:DPM5mC:ADM5mC	1/1:.,1:0,5:0,5
+chr19	6105760	.	C	G	60	PASS	CPGnovo	GT:M5mC:DPM5mC:ADM5mC	0/1:0.6:5:3

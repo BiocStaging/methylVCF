@@ -1,0 +1,8 @@
+^README\.Rmd$
+^\.github$
+^_pkgdown\.yml$
+^pkgdown$
+^codecov\.yml$
+^dev$
+^docs$
+^check$

@@ -1,0 +1,16 @@
+##fileformat=VCFv4.5
+##source=DRAGEN
+##contig=<ID=chr21,length=46709983>
+##ALT=<ID=NON_REF,Description="Represents any unobserved alternate allele">
+##INFO=<ID=END,Number=1,Type=Integer,Description="Last reference position of a block">
+##INFO=<ID=M5mC,Number=R,Type=String,Description="Per-allele mask of reportable modification positions">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=PS,Number=1,Type=Integer,Description="Phase set">
+##FORMAT=<ID=M5mC,Number=M,Type=Float,Description="5mC fraction">
+##FORMAT=<ID=DPM5mC,Number=M,Type=Integer,Description="Informative 5mC depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	dragen_demo
+chr21	13204471	.	A	<NON_REF>	.	PASS	END=13204512;M5mC=...Z......................................,.	GT:M5mC:DPM5mC	0/0:0.2381:21
+chr21	13204520	.	C	G,<NON_REF>	60	PASS	M5mC=x,x,.	GT:M5mC:DPM5mC:PS	1|0:0.8,0:9,14:13204520
+chr21	13204534	.	C	G,<NON_REF>	60	PASS	M5mC=x,x,.	GT:M5mC:DPM5mC:PS	0|1:.,0.7:0,10:13204520
+chr21	13204540	.	T	C,<NON_REF>	60	PASS	M5mC=.,Z,.	GT:M5mC:DPM5mC:PS	1|1:0.4:15:13204520
+chr21	13204550	.	T	C,<NON_REF>	60	PASS	M5mC=.,Z,.	GT:M5mC:DPM5mC:PS	1|1:0.2,0.6:5,10:13204520

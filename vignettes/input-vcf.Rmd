@@ -1,0 +1,194 @@
+---
+title: "Read your DRAGEN or Rastair files"
+output: BiocStyle::html_document
+vignette: >
+    %\VignetteIndexEntry{Read your DRAGEN or Rastair files}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}
+---
+
+# Introduction
+
+This guide takes a local DRAGEN or Rastair file from header inspection to
+a regional query. It shows how to choose a sample and interpret measurements
+when the callers use different allele or CpG context slots.
+
+# Installation
+
+For the development version, follow the [installation instructions][install].
+Once methylVCF is available on Bioconductor, install it with its tutorial
+dependencies.
+
+```{r installation, eval=FALSE}
+BiocManager::install("methylVCF", dependencies = TRUE)
+```
+
+# Inspect the file
+
+Use `inspectMethylVcf()` before choosing a region. It reports the caller,
+samples, contigs and declared methylation fields from the header. The
+function recognizes DRAGEN and Rastair from their header declarations.
+Supply `format = "dragen"` or `format = "rastair"` if the caller cannot be
+identified.
+
+```{r setup, message=FALSE}
+library(methylVCF)
+```
+
+```{r inspect}
+dragen_file <- system.file("extdata", "dragen-multisample.g.vcf", package = "methylVCF")
+info <- inspectMethylVcf(dragen_file)
+info
+info$samples
+```
+
+The printed summary is a quick overview. Use `info$seqinfo` to get the
+declared contigs, lengths and assemblies, `info$fields` for the field
+declarations and `info$checks` for the header checks.
+
+By default, the inspector tries to open the index it finds.
+`info$index$status` distinguishes `"absent"`, `"readable"` and
+`"unreadable"`. With `check_index = FALSE`, a sidecar found on disk is
+reported as `"detected"`. The bundled gVCF has no index. When both sidecars
+are present, CSI takes precedence even if it is unreadable. A readable
+index can still belong to a different file. Use the matching sidecar when
+you query. The inspection reads only the header and optionally opens the
+index.
+
+# Set up a regional query
+
+Choose a local file, an interval on the VCF's reference assembly, and
+the caller's format. Use the contig name as it appears in the header
+(for example, `chr21` or `21`). The region uses 1-based inclusive
+coordinates. By default the reader returns all samples. Use `samples`
+to request specific VCF sample IDs.
+
+Pass `info$format` to `readMethylVcf()` after identifying the caller. If
+`info$format` is `NA`, supply the known format to `inspectMethylVcf()` first.
+Omitting `format` from `readMethylVcf()` selects DRAGEN.
+
+```{r regional-query}
+region <-
+    tibble::tibble(seqnames = "chr21", start = 13204474L, end = 13204520L) |>
+    plyranges::as_granges()
+
+calls <- readMethylVcf(
+    dragen_file, region, format = info$format, samples = info$samples[[1L]]
+)
+as.data.frame(calls)[c("start", "sample", "scope", "fraction")]
+```
+
+For indexed access, place the matching index beside the BGZF file, for example
+`sample.g.vcf.gz.tbi`. CSI (`.csi`) is also supported and takes
+precedence if both indices exist. Plain text and unindexed gzip inputs
+are scanned sequentially. Check the chosen path in
+`S4Vectors::metadata(calls)$access` (`"tabix"` or `"sequential"`).
+
+# Read a phased DRAGEN variant
+
+To read a variant, ask for its coordinate just as you would for a
+reference site. The example below includes both orders of a phased
+heterozygous genotype.
+
+```{r dragen}
+variant <-
+    tibble::tibble(seqnames = "chr21", start = 13204520L, width = 1L) |>
+    plyranges::as_granges()
+
+calls <- readMethylVcf(dragen_file, variant, format = info$format)
+calls |>
+    tibble::as_tibble() |>
+    dplyr::select(
+        sample,
+        genotype,
+        allele_index,
+        haplotype,
+        phase_set,
+        fraction,
+        informative_depth
+    )
+```
+
+In `sample_a`, `1|0` puts ALT first, so fraction 0.8 is assigned to ALT
+and fraction 0 to REF. In `sample_b`, `0|1` puts REF first. Read
+`allele_index` as 0 for REF, 1 for the first ALT, and so on. Read
+`haplotype` as the slot in the phased genotype. It is meaningful within a
+sample, contig and phase set. A pooled call has no per-copy assignment.
+[DRAGEN methylation fields][dragen]
+
+# Read a Rastair CpG context
+
+Rastair indicates whether a call comes from a reference CpG (`CPG`)
+or a newly formed CpG (`CPGnovo`). The bundled example follows the
+2.3.0-rc1 layout with separate slots for the reported contexts.
+
+```{r rastair}
+file <- system.file("extdata", "rastair-example.vcf", package = "methylVCF")
+info <- inspectMethylVcf(file)
+region <-
+    tibble::tibble(seqnames = "chr19", start = 6105744L, end = 6105760L) |>
+    plyranges::as_granges()
+
+calls <- readMethylVcf(file, region, format = info$format)
+calls |>
+    tibble::as_tibble() |>
+    dplyr::select(
+        start,
+        strand,
+        motif_origin,
+        allele_index,
+        fraction,
+        informative_depth
+    )
+```
+
+At 6,105,750 the two contexts have distinct slots. At 6,105,760 a reported
+de novo context could be anchored to multiple local alleles. The fraction
+and depth remain available, with an unspecified strand and allele index.
+This layout encodes context and local allele information.
+[Rastair VCF format][rastair]
+
+# Diagnose an incomplete import
+
+Use the default `on_problem = "error"` for strict import. To inspect what
+can be recovered, use `on_problem = "report"` and read the diagnostics.
+File, header and index errors still stop either mode.
+For Rastair, a slot with `ADM5mC` greater than `DPM5mC` is invalid. Report
+mode records the affected slot and retains valid measurements.
+
+Rastair 2.2.0 can report one slot for a record carrying both CpG flags.
+The package includes an example generated by Rastair on artificial reads.
+The following query returns the readable rows and warns about the
+unsupported record at position 302.
+
+```{r diagnostics}
+file <- system.file("extdata", "rastair-2.2.0-synthetic.vcf", package = "methylVCF")
+region <-
+    tibble::tibble(seqnames = "synthetic", start = 300L, end = 320L) |>
+    plyranges::as_granges()
+
+calls <- readMethylVcf(file, region, format = "rastair", on_problem = "report")
+calls |>
+    tibble::as_tibble() |>
+    dplyr::select(start, motif_origin, fraction, informative_depth)
+
+S4Vectors::metadata(calls)$diagnostics |>
+    tibble::as_tibble() |>
+    dplyr::select(pos, type, reason)
+```
+
+For caller versions, fixture provenance and comparisons with raw records,
+see the [validation report][validation]. Rastair software attribution
+is Copyright © 2025, University of Oxford. For aligned reference
+measurements, see the [regional workflow](methylVCF.html).
+
+# Session information
+
+```{r session-info}
+utils::sessionInfo()
+```
+
+[dragen]: https://illumina.github.io/IlluminaConnectedAnnotationsDocumentation/core-functionality/methylation-annotation/
+[rastair]: https://www.rastair.com/formats/vcf.html
+[validation]: https://github.com/xec-cm/methylVCF/blob/devel/dev/caller-validation.md
+[install]: https://github.com/xec-cm/methylVCF#installation
